@@ -57,7 +57,7 @@ Chi tiết đầy đủ: **[`docs/pi-setup-migration.md`](./docs/pi-setup-migrat
 
 ## Repo chứa gì
 
-```
+```text
 juju-pi-setup/
 ├── README.md                        ← bạn đang đọc
 ├── docs/
@@ -195,6 +195,26 @@ EXTERNAL_CONFIGS=(
 Cả hai đăng ký `/mcp` → `settings.json` có `"extensions": ["-builtin:mcp"]` để tắt
 bản built-in, giữ `pi-mcp-adapter` (đầy đủ hơn: quản qua `mcp.json` + tool `mcp__*`).
 Xoá dòng đó nếu muốn dùng built-in.
+
+### `pi-devin-acp`: bypass permission mặc định (yolo)
+
+Devin qua ACP mặc định chạy mode `accept-edits` và hỏi quyền mỗi tool call (prompt
+"devin requests permission"). Extension đọc toggle bền vững ở
+`~/.pi/devin-acp/settings.json` — file **ngoài** `~/.pi/agent` → không nằm trong backup:
+
+```json
+{
+  "yolo": true,
+  "fast": false
+}
+```
+
+- `yolo: true` → mọi session devin mới được set mode `bypass` (auto-approve
+  server-side, không hiện prompt). Request nào lọt qua (rule bắt buộc ask) thì bridge
+  tự chọn `allow_always`/`allow_once`. Khi bật, `/devin mode` khóa ở bypass.
+- `fast` → dùng priority tier của model family nếu có; toggle `/devin fast on|off`.
+- Flag đọc lúc extension load → sửa file xong phải reload pi. Trong session đang chạy
+  dùng `/devin yolo on|off` — vừa ghi file vừa áp dụng ngay cho runtime.
 
 ---
 

@@ -38,6 +38,7 @@ pi auth check --provider opencode-go
 | `extensions/orca-*.ts`, `agentkit-*/`, `devin/` | ❌ | Orca/AgentKit/Devin host tự sinh lại |
 | `~/.unipi/config/notify/config.json` | ❌ | chứa token Gotify/Telegram → set lại bằng `/unipi:notify-*` |
 | `~/.multix/.env` | ❌ | credential pi-multix → tạo lại |
+| `~/.pi/devin-acp/settings.json` | ❌ | prefs devin-acp theo máy (`yolo` bypass, `fast`) → `/devin yolo on` hoặc tạo lại file |
 
 ## Sau restore — checklist
 
@@ -52,6 +53,8 @@ pi auth check --provider opencode-go
 7. Headless server: `pi-browser-use` + `pi-computer-use` **không** nằm trong manifest —
    duyệt web dùng `pi-smart-fetch`/`pi-web-access`. Muốn browser tool thật: cài
    `google-chrome-stable` rồi thêm lại `npm:pi-browser-use` vào `settings.json`.
+8. `/devin yolo on` nếu muốn Devin auto-approve mọi tool call (bypass) mặc định —
+   hoặc tạo `~/.pi/devin-acp/settings.json` với `"yolo": true`.
 
 ## Troubleshooting
 
