@@ -1,0 +1,12 @@
+# Artifact tạm ở gốc repo (không track). Bundle trong backups/ thì CÓ track.
+/pi-setup-portable.tar.gz
+/pi-setup-portable.tar.gz.tmp.*
+
+# Log cài đặt của restore
+pi-setup-install.log
+
+# Rác hệ điều hành
+.DS_Store
+
+# Bản screenshot gốc (chưa crop/nén) — không track
+screenshots/originals/

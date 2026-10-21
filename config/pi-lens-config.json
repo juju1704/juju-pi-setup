@@ -1,0 +1,17 @@
+{
+  "lsp": {
+    "enabled": true
+  },
+  "widget": {
+    "visible": false
+  },
+  "format": {
+    "enabled": false
+  },
+  "autofix": {
+    "enabled": false
+  },
+  "ui": {
+    "compactLspStatus": true
+  }
+}

@@ -1,0 +1,28 @@
+# File/đường dẫn KHÔNG đưa vào repo public này.
+# Mỗi dòng 1 glob, tính từ gốc thư mục config/. Dấu # bắt đầu comment.
+# được scripts/pi-setup-backup.sh --config-dir tôn trọng khi mirror.
+
+# 3 extension do Orca sinh (@orca-managed-pi-extension).
+# Orca tự sinh lại khi quản lý pi trên máy mới, nên không mất chức năng.
+extensions/orca-*.ts
+
+# Thư mục do AgentKit (ak CLI) tự cài vào ~/.pi/agent/extensions/.
+# Chứa cache path tuyệt đối (native-skill-paths.json,
+# native-skill-hashes.json) + hook đã sinh sẵn.
+# AgentKit tự cài lại trên máy mới bằng `ak`, nên không thuộc repo này.
+extensions/agentkit-*
+
+# Extension do Devin/ACP quản lý — sinh lại khi host load.
+extensions/devin/
+
+# Extension do Devin/ACP quản lý — sinh lại khi host load.
+# Ghi 2 dòng: không-slash cho tar --exclude (GNU tar không khớp pattern có
+# trailing slash với member name), có-slash cho case-glob ở chế độ --config-dir.
+extensions/devin
+extensions/devin/*
+advisor-outcomes.jsonl
+advisor-outcomes-salt
+
+# File backup tay nằm lẫn trong extensions/ (sinh ra khi sửa extension trực tiếp
+# trên máy). Không phải setup, mirror bỏ qua nhờ dòng này.
+extensions/*.bak*

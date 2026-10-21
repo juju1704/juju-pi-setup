@@ -1,0 +1,13 @@
+{
+  "alwaysOn": true,
+  "advisorOutcomeLogging": false,
+  "advisorEffort": "medium",
+  "advisorScoutEnabled": true,
+  "showUsageFooter": true,
+  "advisorRedactSecrets": true,
+  "advisorTrackedFileContent": true,
+  "advisorUntrackedContent": true,
+  "gateFailureMode": "warn-and-continue",
+  "advisor": "devin/swe-2",
+  "executor": "devin/swe-2"
+}
