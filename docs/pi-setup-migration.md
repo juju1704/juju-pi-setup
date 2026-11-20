@@ -39,6 +39,7 @@ pi auth check --provider opencode-go
 | `~/.unipi/config/notify/config.json` | ❌ | chứa token Gotify/Telegram → set lại bằng `/unipi:notify-*` |
 | `~/.multix/.env` | ❌ | credential pi-multix → tạo lại |
 | `~/.pi/devin-acp/settings.json` | ❌ | prefs devin-acp theo máy (`yolo` bypass, `fast`) → `/devin yolo on` hoặc tạo lại file |
+| skill pack ngoài (`reverse-skill`) | ❌ | repo riêng, `settings.json` trỏ bằng path tuyệt đối → clone lại bằng `scripts/install-reverse-skill.sh` (xem [`skill-packs.md`](skill-packs.md)) |
 
 ## Sau restore — checklist
 
@@ -55,6 +56,8 @@ pi auth check --provider opencode-go
    `google-chrome-stable` rồi thêm lại `npm:pi-browser-use` vào `settings.json`.
 8. `/devin yolo on` nếu muốn Devin auto-approve mọi tool call (bypass) mặc định —
    hoặc tạo `~/.pi/devin-acp/settings.json` với `"yolo": true`.
+9. Skill pack ngoài: `./scripts/install-reverse-skill.sh` (clone + nối omp/claude/pi,
+   idempotent). Toolchain của pack **không** tự cài — xem [`skill-packs.md`](skill-packs.md).
 
 ## Troubleshooting
 

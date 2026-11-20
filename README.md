@@ -61,14 +61,16 @@ Chi tiết đầy đủ: **[`docs/pi-setup-migration.md`](./docs/pi-setup-migrat
 juju-pi-setup/
 ├── README.md                        ← bạn đang đọc
 ├── docs/
-│   └── pi-setup-migration.md        hướng dẫn chi tiết + troubleshooting
+│   ├── pi-setup-migration.md        hướng dẫn chi tiết + troubleshooting
+│   └── skill-packs.md               skill pack ngoài repo (reverse-skill) + cách cài
 ├── fonts/                           JetBrains Mono 1.0.2 (font terminal, OFL-1.1)
 ├── scripts/
 │   ├── pi-setup-backup.sh           đóng gói setup của máy hiện tại
 │   ├── pi-setup-restore.sh          dựng lại setup trên máy mới
 │   ├── pi-setup-verify-advisor.mjs  validate advisor.json theo schema thật của pi-advisor-flow
 │   ├── pi-lens-compact-lsp-status.mjs  vá bundle pi-lens để status LSP gọn (xem ghi chú)
-│   └── pi-setup-patch-extensions.mjs   vá stale-ctx crash của pi-footer + pi-goal-x
+│   ├── pi-setup-patch-extensions.mjs   vá stale-ctx crash của pi-footer + pi-goal-x
+│   └── install-reverse-skill.sh        clone + nối pack reverse-skill vào omp/claude/pi
 ├── backups/
 │   └── pi-setup-portable.tar.gz     bundle sẵn sàng tải (đã lọc)
 └── config/                          snapshot setup (plain file, git-diff được)
@@ -395,6 +397,30 @@ config dir của pi.
 
 Trước khi ghi đè, `settings.json` **và** `auth.json` (khi có trong nguồn) được snapshot
 thành `*.bak.<timestamp>`. Script đặt `trap ERR` — không bao giờ thoát im lặng.
+
+### `install-reverse-skill.sh`
+
+Clone [reverse-skill](https://github.com/zhaoxuya520/reverse-skill) rồi nối **một**
+entry router vào ba client. Chi tiết + lý do thiết kế: [`docs/skill-packs.md`](docs/skill-packs.md).
+
+```bash
+./scripts/install-reverse-skill.sh                      # cả 3 client, idempotent
+./scripts/install-reverse-skill.sh --dry-run            # in ra sẽ làm gì
+./scripts/install-reverse-skill.sh --client pi --ref v1.0.1   # chỉ pi, ghim tag
+```
+
+| Option | Hiệu quả |
+|---|---|
+| `--dir DIR` | nơi clone pack (mặc định `~/juju-projects/repo/reverse-skill`) |
+| `--ref REF` | checkout tag/commit sau khi clone → cài lặp lại được |
+| `--client WHICH` | `omp` \| `claude` \| `pi` \| `all` (mặc định `all`) |
+| `--no-pull` | không `git pull` khi repo đã tồn tại |
+| `--dry-run` | chỉ in |
+
+Link **thư mục `skills/`**, không link từng skill con → catalog thêm 1 entry (~90 token)
+thay vì 45 (~1.789 token, đo 7.159 ký tự); pi 1.5.2 `loadSkills` trả `count=1` khi kiểm. Script **không**
+cài toolchain (`jadx`, `frida`, `ghidra`, …) — đó là `skills/scripts/bootstrap-reverse.sh`
+của pack, chạy riêng khi bạn muốn.
 
 ---
 
