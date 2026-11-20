@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
 #
-# install-reverse-skill.sh — cài pack skill "reverse-skill" (router bảo mật/RE) cho
-# các agent client trên máy này, idempotent: chạy lại bao nhiêu lần cũng ra cùng trạng thái.
+# install-reverse-skill.sh — cài pack skill "reverse-skill" (router bảo mật/RE) theo
+# đúng convention skill của máy này, idempotent: chạy lại bao nhiêu lần cũng ra cùng
+# trạng thái.
 #
 # <summary>
-# Pack nguồn: https://github.com/zhaoxuya520/reverse-skill (MIT). Một repo = 56 mục
-# trong skills/: `skills/SKILL.md` là ROUTER (frontmatter name=reverse-skill-router),
-# 49 thư mục con là skill chuyên môn mà router trỏ tới bằng đường dẫn tương đối.
+# Pack nguồn: https://github.com/zhaoxuya520/reverse-skill (MIT). `skills/SKILL.md` là
+# ROUTER (frontmatter name=reverse-skill-router); dưới nó là 45 skill chuyên môn — 43
+# thư mục con trực tiếp + 2 lồng sâu (pentest-tools/src-hunter,
+# reverse-engineering/dsl-vm-reverse) — mà router trỏ tới bằng đường dẫn tương đối.
 #
 # Vì sao chỉ link ĐÚNG thư mục `skills/` chứ không link từng skill con: pi và omp đều
 # load theo kiểu "một thư mục có SKILL.md là một skill, không đệ quy vào trong nó".
-# Link một lần → catalog chỉ thêm 1 entry (~90 token) thay vì 49; sub-skill vẫn đọc
+# Link một lần → catalog chỉ thêm 1 entry (~90 token) thay vì 45; sub-skill vẫn đọc
 # được qua đường dẫn router đưa ra. Đo trên pi 1.5.2: loadSkills trả count=1.
 #
-# Client được nối:
-#   ~/.omp/agent/skills/<name>   symlink   (omp scan thư mục này ở mỗi lần khởi động)
-#   ~/.claude/skills/<name>      symlink   (Claude Code / Claude-family client)
-#   ~/.pi/agent/settings.json    "skills"[] thêm path tuyệt đối (pi đọc mảng này)
+# Đăng ký theo convention có sẵn của máy — KHÔNG thêm entry riêng vào settings:
+#   ~/juju-projects/repo/juju-agent-skills/skills/<name>  symlink
+#       → omp đọc qua `skills.customDirectories`
+#       → pi  đọc qua `skills[]` trong ~/.pi/agent/settings.json
+#   ~/.claude/skills/<name>                               symlink
+#       → Claude Code; omp cũng quét qua `skills.enableClaudeUser`
+# Nhờ vậy skill pack nằm cùng chỗ với `jj-*` và không tạo đường đăng ký thứ hai.
 #
 # KHÔNG chạy script trong pack (skills/scripts/bootstrap-reverse.sh cài jadx/frida/
 # radare2/ghidra…). Cài toolchain là hành động riêng, có chủ đích:
@@ -24,8 +29,8 @@
 # </summary>
 #
 # Dùng:
-#   ./scripts/install-reverse-skill.sh                  # cài cho cả 3 client
-#   ./scripts/install-reverse-skill.sh --client pi      # chỉ pi
+#   ./scripts/install-reverse-skill.sh                  # cả hai đích
+#   ./scripts/install-reverse-skill.sh --client agents  # chỉ juju-agent-skills (omp + pi)
 #   ./scripts/install-reverse-skill.sh --dry-run        # in ra sẽ làm gì
 #   ./scripts/install-reverse-skill.sh --ref v1.0.1     # ghim tag/commit sau khi clone
 #
@@ -41,8 +46,7 @@ fi
 UPSTREAM="https://github.com/zhaoxuya520/reverse-skill.git"
 DEST="${REVERSE_SKILL_DIR:-$HOME/juju-projects/repo/reverse-skill}"
 NAME="reverse-skill"
-AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
-OMP_SKILLS="${OMP_SKILLS_DIR:-$HOME/.omp/agent/skills}"
+AGENT_SKILLS="${AGENT_SKILLS_DIR:-$HOME/juju-projects/repo/juju-agent-skills/skills}"
 CLAUDE_SKILLS="${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}"
 CLIENTS="all"
 REF=""
@@ -66,15 +70,15 @@ Dùng: install-reverse-skill.sh [tùy chọn]
 
   --dir DIR         Nơi clone pack (mặc định: ~/juju-projects/repo/reverse-skill)
   --ref REF         Sau khi clone/pull, checkout REF (tag/commit) — dùng để ghim
-  --client WHICH    omp | claude | pi | all  (mặc định all)
+  --client WHICH    agents | claude | all  (mặc định all)
+                    agents = ~/juju-projects/repo/juju-agent-skills/skills (omp + pi)
   --no-pull         Không `git pull` khi repo đã tồn tại
   --dry-run         Chỉ in ra sẽ làm gì
   -h, --help        In hướng dẫn này
 
 Biến môi trường:
   REVERSE_SKILL_DIR   đổi đường dẫn đích
-  PI_CODING_AGENT_DIR đổi config dir của pi (mặc định ~/.pi/agent)
-  OMP_SKILLS_DIR      đổi thư mục skill của omp
+  AGENT_SKILLS_DIR    đổi thư mục skill dùng chung (mặc định juju-agent-skills/skills)
   CLAUDE_SKILLS_DIR   đổi thư mục skill của Claude
 EOF
 }
@@ -92,8 +96,8 @@ while [ $# -gt 0 ]; do
 done
 
 case "$CLIENTS" in
-	all | omp | claude | pi) ;;
-	*) die "--client phải là omp|claude|pi|all (nhận: $CLIENTS)" ;;
+	all | agents | claude) ;;
+	*) die "--client phải là agents|claude|all (nhận: $CLIENTS)" ;;
 esac
 want() { [ "$CLIENTS" = "all" ] || [ "$CLIENTS" = "$1" ]; }
 
@@ -133,58 +137,55 @@ else
 fi
 
 # ── 2. Nối client ──────────────────────────────────────────────────────────────
+# Đích của symlink: tương đối khi thư mục chứa link nằm trong git work tree VÀ pack
+# nằm cạnh repo đó (cùng thư mục cha của repo, vd `<workspace>/repo/`), tuyệt đối
+# trong mọi trường hợp còn lại.
+#
+# Vì sao có điều kiện thứ hai: symlink trong repo phải sống sót khi clone ở path khác,
+# nhưng tương đối hoá một pack nằm ngoài cây làm việc sinh ra `../../../..` trỏ ra
+# /tmp hay /opt — vừa dễ đứt vừa khó đọc. Ngoài cây thì tuyệt đối là câu trả lời đúng.
+link_value() { # link_value <thư mục chứa link>
+	local top shared
+	if top="$(git -C "$1" rev-parse --show-toplevel 2>/dev/null)"; then
+		shared="$(dirname "$top")"
+		case "$(realpath -m "$SKILL_ROOT")" in
+			"$shared"/*) realpath -m --relative-to="$1" "$SKILL_ROOT"; return ;;
+		esac
+	fi
+	printf '%s\n' "$SKILL_ROOT"
+}
+
 link_into() { # link_into <thư mục skill của client> <nhãn>
-	local dir="$1" label="$2" target="$1/$NAME"
+	local dir="$1" label="$2" target="$1/$NAME" value
 	run mkdir -p "$dir"
+	value="$(link_value "$dir")"
 	if [ -L "$target" ]; then
-		if [ "$(readlink "$target")" = "$SKILL_ROOT" ]; then
+		# So sánh đích thật để symlink tương đối và tuyệt đối cùng trỏ một chỗ
+		# không bị coi là lệch.
+		if [ "$(realpath -m "$target" 2>/dev/null)" = "$(realpath -m "$SKILL_ROOT")" ]; then
 			info "→ $label: đã link đúng"
 			return
 		fi
 		info "→ $label: symlink cũ trỏ $(readlink "$target") — cập nhật"
-		run ln -sfn "$SKILL_ROOT" "$target"
+		run ln -sfn "$value" "$target"
 	elif [ -d "$target" ]; then
 		warn "$label: $target là thư mục thật, không phải symlink — giữ nguyên (muốn thay: xoá tay rồi chạy lại)"
 	else
-		info "→ $label: link $target → $SKILL_ROOT"
-		run ln -sfn "$SKILL_ROOT" "$target"
+		info "→ $label: link $target → $value"
+		run ln -sfn "$value" "$target"
 	fi
 }
 
-if want omp; then
-	link_into "$OMP_SKILLS" "omp"
+if want agents; then
+	if [ -d "$AGENT_SKILLS" ]; then
+		link_into "$AGENT_SKILLS" "agents (omp + pi)"
+	else
+		warn "không thấy $AGENT_SKILLS — bỏ qua; omp và pi sẽ không thấy skill này"
+		warn "  (đặt AGENT_SKILLS_DIR nếu chỗ đó nằm ở path khác)"
+	fi
 fi
 if want claude; then
 	link_into "$CLAUDE_SKILLS" "claude"
-fi
-if want pi; then
-	[ -f "$AGENT_DIR/settings.json" ] || die "không thấy $AGENT_DIR/settings.json — cài pi trước"
-	# Dùng node, không jq: pi chắc chắn có Node, jq thì không (xem ghi chú cùng chủ đề
-	# trong pi-setup-backup.sh). Script tự backup settings.json trước khi ghi.
-	if [ "$DRY_RUN" -eq 1 ]; then
-		if node -e 'const c=require(process.argv[1]);process.exit((c.skills||[]).includes(process.argv[2])?0:1)' \
-			"$AGENT_DIR/settings.json" "$SKILL_ROOT" 2>/dev/null; then
-			info "→ pi: đã có trong skills[]"
-		else
-			printf '[dry-run] node: thêm %s vào .skills của %s\n' "$SKILL_ROOT" "$AGENT_DIR/settings.json"
-		fi
-	else
-		node -e '
-			const fs = require("fs");
-			const [file, path] = process.argv.slice(1);
-			const raw = fs.readFileSync(file, "utf8");
-			const cfg = JSON.parse(raw);
-			const list = Array.isArray(cfg.skills) ? cfg.skills : [];
-			if (list.includes(path)) {
-				console.log("→ pi: đã có trong skills[]");
-				process.exit(0);
-			}
-			fs.writeFileSync(file + ".bak." + new Date().toISOString().replace(/[:.]/g, "-"), raw);
-			cfg.skills = [...list, path];
-			fs.writeFileSync(file, JSON.stringify(cfg, null, 2) + "\n");
-			console.log("→ pi: đã thêm vào skills[] — " + path);
-		' "$AGENT_DIR/settings.json" "$SKILL_ROOT"
-	fi
 fi
 
 # ── 3. Trạng thái ─────────────────────────────────────────────────────────────
