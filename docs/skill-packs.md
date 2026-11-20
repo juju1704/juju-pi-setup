@@ -14,8 +14,14 @@ thư mục sau, nên chỉ cần symlink đúng chỗ:
 
 | Thư mục | Ai đọc | Cấu hình |
 |---|---|---|
-| `~/juju-projects/repo/juju-agent-skills/skills/` | omp, pi | omp `skills.customDirectories`; pi `skills[]` |
-| `~/.claude/skills/` | Claude Code, omp | omp `skills.enableClaudeUser: true` |
+| `~/juju-projects/repo/juju-agent-skills/skills/` | pi (đã đo), omp (khai báo) | pi `skills[]`; omp `skills.customDirectories` |
+| `~/.claude/skills/` | Claude Code, **omp (đã đo)** | omp `skills.enableClaudeUser: true` |
+
+Đo được: ẩn symlink trong `juju-agent-skills` đi thì omp **vẫn** nạp skill qua
+`~/.claude/skills/reverse-skill/SKILL.md` — nên đường omp thực dùng là
+`enableClaudeUser`. `customDirectories` có khai báo đường `juju-agent-skills` nhưng
+chưa đo riêng được nó có tự nạp symlink trong đó hay không; với omp, đường
+`~/.claude/skills` là đường đã kiểm.
 
 `jj-*` nằm trực tiếp trong `juju-agent-skills/skills/`. `argos-qa`, `juju-chef`,
 `daily-summary` nằm ở repo riêng rồi symlink vào một trong hai thư mục trên.
@@ -55,8 +61,8 @@ Script làm đúng hai việc, chạy lại bao nhiêu lần cũng ra cùng tr�
 
 | Đích | Nội dung | Ai thấy |
 |---|---|---|
-| `repo/juju-agent-skills/skills/reverse-skill` | symlink **tương đối** (`../../reverse-skill/skills`) | omp qua `customDirectories`, pi qua `skills[]` |
-| `~/.claude/skills/reverse-skill` | symlink tuyệt đối | Claude Code, omp qua `enableClaudeUser` |
+| `repo/juju-agent-skills/skills/reverse-skill` | symlink **tương đối** (`../../reverse-skill/skills`) | pi qua `skills[]`; omp qua `customDirectories` (khai báo, chưa đo riêng) |
+| `~/.claude/skills/reverse-skill` | symlink tuyệt đối | Claude Code; **omp qua `enableClaudeUser` (đã đo)** |
 
 Symlink trong `juju-agent-skills` cố ý là **tương đối**: nó nằm trong một git work
 tree, nên tuyệt đối hoá sẽ hỏng ngay khi clone ở path khác. Script tự chọn tương đối

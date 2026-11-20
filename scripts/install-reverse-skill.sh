@@ -17,10 +17,12 @@
 #
 # Đăng ký theo convention có sẵn của máy — KHÔNG thêm entry riêng vào settings:
 #   ~/juju-projects/repo/juju-agent-skills/skills/<name>  symlink
-#       → omp đọc qua `skills.customDirectories`
-#       → pi  đọc qua `skills[]` trong ~/.pi/agent/settings.json
+#       → pi  đọc qua `skills[]` trong ~/.pi/agent/settings.json (đã đo: count=1)
+#       → omp khai báo `skills.customDirectories` trỏ cùng thư mục
 #   ~/.claude/skills/<name>                               symlink
-#       → Claude Code; omp cũng quét qua `skills.enableClaudeUser`
+#       → Claude Code
+#       → omp qua `skills.enableClaudeUser` (đã đo: ẩn link juju-agent-skills thì omp
+#         vẫn nạp được skill từ đây)
 # Nhờ vậy skill pack nằm cùng chỗ với `jj-*` và không tạo đường đăng ký thứ hai.
 #
 # KHÔNG chạy script trong pack (skills/scripts/bootstrap-reverse.sh cài jadx/frida/
