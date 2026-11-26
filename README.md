@@ -4,7 +4,7 @@
 
 **Snapshot portable của setup [`pi`](https://github.com/earendil-works/pi) coding-agent — clone là dựng lại đủ 27 extension trên máy khác.**
 
-pi `1.3.0` · Node `24` · Linux headless server · updated 2026-10-21
+pi `1.6.1` · Node `24` · Linux headless server · updated 2026-11-26
 
 Fork/ý tưởng từ [mrgoonie/zuey-pi-setup](https://github.com/mrgoonie/zuey-pi-setup).
 
@@ -62,28 +62,33 @@ juju-pi-setup/
 ├── README.md                        ← bạn đang đọc
 ├── docs/
 │   ├── pi-setup-migration.md        hướng dẫn chi tiết + troubleshooting
-│   └── skill-packs.md               skill pack ngoài repo (reverse-skill) + cách cài
+│   ├── skill-packs.md               skill pack ngoài repo (reverse-skill) + cách cài
+│   └── journals/                    nhật ký thay đổi setup theo ngày
 ├── fonts/                           JetBrains Mono 1.0.2 (font terminal, OFL-1.1)
 ├── scripts/
 │   ├── pi-setup-backup.sh           đóng gói setup của máy hiện tại
 │   ├── pi-setup-restore.sh          dựng lại setup trên máy mới
 │   ├── pi-setup-verify-advisor.mjs  validate advisor.json theo schema thật của pi-advisor-flow
 │   ├── pi-lens-compact-lsp-status.mjs  vá bundle pi-lens để status LSP gọn (xem ghi chú)
-│   ├── pi-setup-patch-extensions.mjs   vá stale-ctx crash của pi-footer + pi-goal-x
+│   ├── pi-setup-patch-extensions.mjs   vá stale-ctx (pi-footer, pi-goal-x) + advisor-pi + node-notifier main
 │   └── install-reverse-skill.sh        symlink pack reverse-skill vào juju-agent-skills + claude
 ├── backups/
 │   └── pi-setup-portable.tar.gz     bundle sẵn sàng tải (đã lọc)
 └── config/                          snapshot setup (plain file, git-diff được)
     ├── .pi-setup-exclude            glob loại trừ — backup tôn trọng file này
     ├── settings.json                manifest 27 packages + model/theme/compaction
+    │                                (có path tuyệt đối: extension opencode-console,
+    │                                 thư mục skills — xem mục tương ứng)
     ├── advisor.json                 config pi-advisor-flow (ở gốc config dir)
     ├── advisor-pi-preferences/      prefs của advisor-pi (model + thinking level)
     ├── pi-lens-config.json          config pi-lens — nằm ở ~/.pi-lens/, NGOÀI config dir
     ├── external-configs.txt         manifest: file nào đi về đâu khi restore
     ├── APPEND_SYSTEM.md             system prompt bổ sung
     ├── models-store.json            catalog model (đỡ phải chờ refresh)
+    ├── models.json                  provider tự khai (omniroute/…), key dạng "$ENV_VAR"
     ├── model-fallback/
     │   └── config.json              rule của pi-model-fallback
+    ├── bin/                         script tự viết (sync-omniroute-models.sh); bin/fd bị exclude
     └── extensions/                  extension viết tay, không có trên npm
         ├── compaction-policy.ts     trigger compaction duy nhất của setup
         ├── pi-footer-cache-tps.ts   đẩy cache-TTL + tốc độ token (t/s) vào pi-footer
@@ -98,7 +103,7 @@ juju-pi-setup/
 |---|---|---|
 | `extensions/orca-*.ts` (3 file) | Orca (`@orca-managed-pi-extension`) | glue tích hợp Orca; Orca tự sinh khi quản pi |
 | `extensions/agentkit-*/` | AgentKit (`ak`) | hook đã sinh + cache chứa **path tuyệt đối**; `ak` tự cài lại |
-| `extensions/devin/` | host Devin/ACP | provider extension do host quản lý |
+| `extensions/devin/` | setup Devin local viết tay | copy cũ của pi-devin-local; đã xoá — `pi-devin-plus` (npm) đăng ký provider `devin`, copy local sẽ đè package nếu quay lại |
 | `missions/`, `memory/`, `skills/` | pi / AgentKit | state theo máy, không phải setup |
 | `~/.pi/agent/agents/`, `rules/` | AgentKit | tự cài lại khi `ak` chạy |
 
@@ -107,7 +112,7 @@ juju-pi-setup/
 `scripts/pi-setup-backup.sh --config-dir config` đọc file này (mỗi dòng 1 glob, `#` là comment) và xoá mọi file khớp sau khi mirror — nên chạy backup lại bao nhiêu lần cũng không kéo `orca-*`/`agentkit-*`/`devin/` vào repo:
 
 ```bash
-./scripts/pi-setup-backup.sh --config-dir config   # → "loại trừ: 93 file khớp .pi-setup-exclude"
+./scripts/pi-setup-backup.sh --config-dir config   # → "loại trừ: 100 file khớp .pi-setup-exclude"
 ```
 
 Ngoài các family đã sinh, file này còn bỏ `advisor-outcomes.jsonl`, `advisor-outcomes-salt` (log advisor theo máy) và `extensions/*.bak*` (backup của chính các script vá).
@@ -186,7 +191,7 @@ EXTERNAL_CONFIGS=(
 | 24 | `pi-lens` | LSP diagnostics + navigation, linter/type-checker, formatter, ast-grep/tree-sitter |
 | 25 | `@pinet/model-aware-compaction` | compaction theo cửa sổ model — **tắt**, `compaction-policy.ts` đã làm việc này |
 | 26 | `pi-multix` | sinh/xử lý media qua multix CLI (credential ở `~/.multix/.env`) |
-| 27 | `@tian.zuo/pi-devin-acp` | tích hợp Devin qua ACP |
+| 27 | `pi-devin-plus` | Devin/Cognition models làm provider `devin` — login qua Devin CLI, catalog sống, thinking levels |
 
 > Version **chỉ để tham khảo tại thời điểm snapshot**; source of truth là `config/settings.json`.
 > Chỉ `pi-smart-fetch` pin cứng, còn lại float → máy mới lấy bản mới nhất. Pin trong
@@ -198,25 +203,102 @@ Cả hai đăng ký `/mcp` → `settings.json` có `"extensions": ["-builtin:mcp
 bản built-in, giữ `pi-mcp-adapter` (đầy đủ hơn: quản qua `mcp.json` + tool `mcp__*`).
 Xoá dòng đó nếu muốn dùng built-in.
 
-### `pi-devin-acp`: bypass permission mặc định (yolo)
+### `pi-devin-plus`: provider `devin` qua Devin CLI
 
-Devin qua ACP mặc định chạy mode `accept-edits` và hỏi quyền mỗi tool call (prompt
-"devin requests permission"). Extension đọc toggle bền vững ở
-`~/.pi/devin-acp/settings.json` — file **ngoài** `~/.pi/agent` → không nằm trong backup:
+Devin **local** trên máy này gồm hai phần tách biệt: CLI `devin` (binary) và package
+`pi-devin-plus` (cầu nối thành provider trong pi). CLI không nằm trong backup — cài lại
+bằng installer của Devin, rồi pi chỉ cần credential của CLI.
 
-```json
-{
-  "yolo": true,
-  "fast": false
-}
+```bash
+# 1) CLI (self-updating, cài vào ~/.local/share/devin/cli/_versions/)
+curl -fsSL https://cli.devin.ai/install.sh | bash   # → ~/.local/bin/devin
+devin auth login                                    # device flow → ~/.local/share/devin/credentials.toml
+devin models | head                                 # catalog sống theo account
+devin doctor                                        # 3 check: subagent profiles / otel / auth
 ```
 
-- `yolo: true` → mọi session devin mới được set mode `bypass` (auto-approve
-  server-side, không hiện prompt). Request nào lọt qua (rule bắt buộc ask) thì bridge
-  tự chọn `allow_always`/`allow_once`. Khi bật, `/devin mode` khóa ở bypass.
-- `fast` → dùng priority tier của model family nếu có; toggle `/devin fast on|off`.
-- Flag đọc lúc extension load → sửa file xong phải reload pi. Trong session đang chạy
-  dùng `/devin yolo on|off` — vừa ghi file vừa áp dụng ngay cho runtime.
+Trong pi: `/login devin` (tái dùng credential CLI/Desktop) rồi `/model devin/<family>`.
+
+- `/devin-status` — trạng thái CLI + auth; `/devin-refresh` — reload catalog;
+  thinking level (medium/high/max) map sang variant `swe-*` tương ứng.
+- Catalog lấy sống từ `devin models list` (hiện ~56 family; `swe-2-1*` free tier,
+  `adaptive` tính phí) — không pin trong `models.json`, nên backup không mang theo catalog.
+- **Không** cài chung với `pi-devin`, `pi-devin-local`, `pi-devin-auth`,
+  `pi-devin-oauth` — tất cả đều đăng ký provider `devin` và đè lẫn nhau. Cũng
+  không đặt copy tay nào vào `~/.pi/agent/extensions/devin/` (lý do loại trừ ở
+  bảng trên): pi auto-load thư mục đó và nó sẽ đè package.
+
+Phần **không** backup (đều là state/secret theo máy):
+
+| Path | Nội dung | Cách dựng lại |
+| --- | --- | --- |
+| `~/.local/share/devin/credentials.toml` | `windsurf_api_key`, API host | `devin auth login` |
+| `~/.config/devin/config.json` + `~/.config/devin/cli/config.json` | `org_id`, theme, hooks (Orca tự chèn `SessionStart`/`UserPromptSubmit`) | `devin setup` / tự sinh khi chạy |
+| `~/.local/share/devin/cli/` | `sessions.db`, transcripts, plugins, trusted workspaces | state — không migrate |
+| `~/.agents/skills/` | skill dùng chung Devin + Orca | cài lại bằng AgentKit `ak` / symlink pack |
+
+MCP `devin` trong `~/.pi/agent/mcp.json` (`https://mcp.devin.ai/mcp`) là kênh **khác**:
+đọc `DEVIN_API_KEY` từ env để điều khiển phiên cloud, không liên quan credential CLI mà
+`pi-devin-plus` dùng.
+
+### OpenCode Console (`@opencode/console`)
+
+Package npm `@opencode/console` (bin `opencode-console`) gắn pi vào một **workspace**
+OpenCode Console: model, MCP server, instructions, skills và policy của workspace được
+đồng bộ về máy.
+
+```bash
+npx -y @opencode/console setup pi     # login (device flow) + trỏ pi vào workspace
+npx -y @opencode/console status       # account / workspace / số model / lần sync cuối
+npx -y @opencode/console sync         # kéo config mới (--refresh-agents ghi lại settings)
+npx -y @opencode/console setup pi --remove         # gỡ: trả defaultProvider/defaultModel cũ
+npx -y @opencode/console setup pi --keep-provider  # không đổi provider ký tên sẵn của harness
+```
+
+Nó ghi hai chỗ:
+
+- `~/.pi/agent/settings.json`: thêm **path tuyệt đối** `~/.local/share/opencode-console/cli/pi-extension.js`
+  vào `extensions[]`, đặt `defaultProvider: "opencode"` + `defaultModel: "claude-sonnet-5-5"`,
+  và snapshot file cũ thành `settings.json.opencode-console.bak`. Giá trị gốc được lưu
+  trong `pi.json` để `--remove` khôi phục.
+- `~/.local/share/opencode-console/`: `credential.json`, `pi.json`, `pi/skills.json`,
+  `cli/` (bản CLI tự cài + `pi-extension.js`) — **không** nằm trong backup vì chứa credential.
+
+Hệ quả cho backup/restore: `config/settings.json` mang một path tuyệt đối
+(`/home/juju/...`). Trên máy mới, chạy lại `npx @opencode/console setup pi` để nó ghi lại
+entry theo `$HOME` mới; nếu không dùng Console thì xoá dòng đó khỏi `extensions[]` thay vì
+bê nguyên. `opencode-console` tự update build của nó (tắt bằng
+`OPENCODE_CONSOLE_AUTO_UPDATE=off`); policy check gọi qua `opencode-console check` (stdin
+JSON `{action, resources}`, exit 0 = allow, 2 = deny).
+
+---
+
+## Codemode
+
+`codemode` là built-in extension của pi: model viết một script JavaScript chạy trong
+QuickJS sandbox, script gọi các tool khác qua `tools.<name>(args)` và chỉ **output của
+script** quay về context — dùng để chạy nhiều call song song (`Promise.allSettled`), lọc
+output lớn trước khi model thấy, và gọi non-LLM model qua `models.classify()` /
+`models.generateImages()`.
+
+Bật bằng `defaultTools` trong `config/settings.json`:
+
+```json
+"defaultTools": ["+codemode"]
+```
+
+`+name` là dạng bổ sung: `read`/`bash`/`edit`/`write` mặc định vẫn được khai báo trực
+tiếp, `codemode` thêm vào (khác với list tên trần, vốn thay thế toàn bộ selection). Muốn
+cho một lần chạy: `pi --tools +codemode`. Biến thể `codemode.mode: "only"` ẩn mọi tool
+khác khỏi model và bắt đi qua script — snapshot giữ mặc định `"on"`.
+
+Giới hạn đáng nhớ: 2 worker/session-process (`PI_CODEMODE_MAX_WORKERS`), 256 MB/script,
+script không tự gọi `codemode` lồng nhau, và `store()`/`load()` chỉ giữ JSON nhỏ
+(≤256K/khoá) chứ không phải chỗ chứa ảnh.
+
+**omp không có codemode** — `omp --tools codemode` báo `Unknown tool`. Tương đương gần
+nhất là `eval` (Python/JS cell, có helper browser/computer), mặc định đã bật; đừng thêm
+`codemode` vào config của omp.
 
 ---
 
@@ -344,6 +426,8 @@ bằng snapshot + cảnh báo stderr. Script vá dừng exit 2 thay vì đoán k
 |---|---|
 | `pi-footer` | bọc `ctx.getContextUsage()` trong render bằng try/catch, trả `[]` cho frame cũ; footer áp lại bằng ctx mới ở `session_start` kế |
 | `pi-goal-x` | 0.32.x đã fix upstream (capture `goalCwd`/`storage` lúc đăng ký widget) — script nhận dạng cả bản vá tay lẫn bản npm đã fix, vá tay cho bản ≤0.31.x |
+| `advisor-pi` | session-state entry do fallback im lặng ghi ra đè prefs model mỗi reload → re-assert provider/model/thinking từ `advisor-pi-preferences/` nếu model prefs vẫn resolve |
+| `node-notifier` | 12.x là ESM-only (chỉ `exports`, không `main`) → nhánh phân giải module kiểu cũ của pi/jiti tìm `<pkg>/index.js` và `@pi-unipi/notify` chết lúc load (`Failed to load extension … valid "main" entry`) → thêm `"main": "./dist/index.js"` vào `package.json`; resolver chuẩn vẫn dùng `exports` |
 
 ```bash
 node scripts/pi-setup-patch-extensions.mjs           # vá (idempotent, backup trước)
@@ -418,10 +502,14 @@ entry router vào hai thư mục skill chuẩn của máy — không thêm entry
 | `--no-pull` | không `git pull` khi repo đã tồn tại |
 | `--dry-run` | chỉ in |
 
+`settings.json` khai báo thêm thư mục skill dùng chung bằng **path tuyệt đối**
+(`skills: ["/home/juju/juju-projects/repo/juju-agent-skills/skills"]`) — trên máy mới phải
+sửa lại path này (hoặc bỏ entry) sau khi clone skills repo, vì restore chỉ bê nguyên chuỗi.
+
 Link **thư mục `skills/`**, không link từng skill con → catalog thêm 1 entry (~90 token)
-thay vì 45 (~1.789 token, đo 7.159 ký tự); pi 1.5.2 `loadSkills` trả `count=1` khi kiểm.
-Script **không** cài toolchain (`jadx`, `frida`, `ghidra`, …) — đó là
-`skills/scripts/bootstrap-reverse.sh` của pack, chạy riêng khi bạn muốn.
+thay vì 45 (~1.789 token, đo 7.159 ký tự); pi 1.5.2 `loadSkills` trả `count=1` khi kiểm. Script **không**
+cài toolchain (`jadx`, `frida`, `ghidra`, …) — đó là `skills/scripts/bootstrap-reverse.sh`
+của pack, chạy riêng khi bạn muốn.
 
 ---
 
@@ -434,8 +522,9 @@ Script **không** cài toolchain (`jadx`, `frida`, `ghidra`, …) — đó là
 - **`pi` cài global theo version Node** → đổi `nvm use`/`fnm use` làm mất lệnh `pi`;
   cài lại global cho version đó.
 - **Statusline icon cần Nerd Font** → xem mục font phía trên.
-- **Vá `pi-footer` nằm trong `node_modules`** → chạy lại `pi-setup-patch-extensions.mjs`
-  sau mỗi `pi update`.
+- **Vá `pi-footer`/`node-notifier` nằm trong `node_modules`** → chạy lại `pi-setup-patch-extensions.mjs`
+  sau mỗi `pi update` (riêng `node-notifier` mất vá mỗi khi `@pi-unipi/notify` được cài lại,
+  vì `node-notifier@^12` là ESM-only — xem mục Troubleshooting trong `docs/pi-setup-migration.md`).
 
 ---
 
