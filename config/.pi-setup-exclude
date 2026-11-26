@@ -26,3 +26,7 @@ advisor-outcomes-salt
 # File backup tay nằm lẫn trong extensions/ (sinh ra khi sửa extension trực tiếp
 # trên máy). Không phải setup, mirror bỏ qua nhờ dòng này.
 extensions/*.bak*
+
+# bin/fd là binary ~3.7MB build theo kiến trúc máy — không đưa vào repo config.
+# Trên máy mới cài lại bằng package manager (fd-find), không restore từ đây.
+bin/fd

@@ -1,11 +1,14 @@
 {
-  "lastChangelogVersion": "1.3.0",
+  "lastChangelogVersion": "1.6.1",
   "theme": "light/dark",
-  "defaultProvider": "opencode-go",
-  "defaultModel": "deepseek-v4.1-flash",
+  "defaultProvider": "opencode",
+  "defaultModel": "claude-sonnet-5-5",
   "defaultThinkingLevel": "high",
   "defaultProjectTrust": "always",
   "tuiMode": "fullscreen",
+  "defaultTools": [
+    "+codemode"
+  ],
   "packages": [
     "npm:pi-web-access",
     "npm:pi-mcp-adapter",
@@ -36,9 +39,10 @@
     "npm:subagents-pi",
     "npm:statusline-pi",
     "npm:advisor-pi",
-    "npm:@tian.zuo/pi-devin-acp"
+    "npm:pi-devin-plus"
   ],
   "enabledModels": [
+    "omniroute/ollamacloud/deepseek-v4.1-flash",
     "opencode-go/deepseek-v4.1-flash",
     "opencode-go/kimi-k3",
     "opencode-go/qwen3.8-max",
@@ -47,9 +51,9 @@
     "openai-codex/gpt-5.6-luna",
     "openai-codex/gpt-5.6-sol",
     "openai-codex/gpt-6-astra",
-    "openai-codex/gpt-5.6-terra"
+    "openai-codex/gpt-5.6-terra",
+    "omniroute/**"
   ],
-  "showCacheMissNotices": true,
   "thinkingBudgets": {
     "medium": 10240,
     "high": 32768
@@ -142,6 +146,30 @@
   "fullscreenExitOutput": "resume-hint",
   "fullscreenScrollbar": "auto",
   "extensions": [
-    "-builtin:mcp"
-  ]
+    "-builtin:mcp",
+    "/home/juju/.local/share/opencode-console/cli/pi-extension.js"
+  ],
+  "skills": [
+    "/home/juju/juju-projects/repo/juju-agent-skills/skills"
+  ],
+  "hideThinkingBlock": false,
+  "extensionChangelogVersions": {
+    "{\"source\":\"npm:pi-web-access\",\"scope\":\"user\"}": "0.48.0",
+    "{\"source\":\"npm:pi-mcp-adapter\",\"scope\":\"user\"}": "7.0.1",
+    "{\"source\":\"npm:pi-subagents\",\"scope\":\"user\"}": "0.90.0",
+    "{\"source\":\"npm:pi-memory\",\"scope\":\"user\"}": "0.4.2",
+    "{\"source\":\"npm:pi-footer\",\"scope\":\"user\"}": "0.5.1",
+    "{\"source\":\"npm:pi-advisor-flow\",\"scope\":\"user\"}": "0.17.0",
+    "{\"source\":\"npm:@tmustier/pi-session-recap\",\"scope\":\"user\"}": "0.6.1",
+    "{\"source\":\"npm:pi-lens\",\"scope\":\"user\"}": "4.5.2",
+    "{\"source\":\"npm:pi-model-fallback\",\"scope\":\"user\"}": "0.6.2",
+    "{\"source\":\"npm:@tintinweb/pi-subagents\",\"scope\":\"user\"}": "0.26.3",
+    "{\"source\":\"npm:@narumitw/pi-usage\",\"scope\":\"user\"}": "0.70.0"
+  },
+  "notices": {
+    "cacheMisses": true,
+    "cacheWarming": true,
+    "compactionCosts": true,
+    "reasoningDrops": true
+  }
 }

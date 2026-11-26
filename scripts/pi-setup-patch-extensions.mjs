@@ -1,24 +1,47 @@
 #!/usr/bin/env node
 /**
- * pi-setup-patch-extensions.mjs — vá các lỗi "stale extension ctx" trong package
- * bên thứ ba đang cài, vì pi coi MỌI truy cập vào ctx cũ là lỗi fatal và điều đó
- * GIẾT tiến trình pi (in stack trace ra shell) ở lần `/reload` kế tiếp.
+ * pi-setup-patch-extensions.mjs — vá các lỗi trong package bên thứ ba đang cài.
+ * Hai vá đầu là lỗi "stale extension ctx": pi coi MỌI truy cập vào ctx cũ là
+ * lỗi fatal và GIẾT tiến trình pi (in stack trace ra shell) ở lần `/reload`
+ * kế tiếp. Vá advisor-pi là lỗi logic, không liên quan stale ctx.
  *
- * Cơ chế chung: `/reload`, `newSession()`, `fork()`, `switchSession()` invalidate
- * runner cũ; extension nào giữ `ctx` trong closure của một hàm chạy lại sau đó
+ * Cơ chế chung của ba bản vá stale-ctx: `/reload`, `newSession()`, `fork()`,
+ * `switchSession()` invalidate runner cũ; extension nào giữ `ctx` trong closure của
+ * một hàm chạy lại sau đó
  * (render của footer/widget, factory, callback hoãn bằng microtask) sẽ ném:
  *
  *   Error: This extension ctx is stale after session replacement or reload.
  *
- * Hai bản vá đang có:
+ * Bốn bản vá đang có (ba bản vá stale-ctx, một bản vá phân giải module):
  *
  *   pi-footer  — `render()` gọi `collectStatuslineData(ctx, …)` → `ctx.getContextUsage()`.
  *                Vá: bọc trong try/catch, trả `[]` cho frame cũ (footer được áp lại
  *                bằng ctx mới ở `session_start` kế tiếp).
+ *   advisor-pi — `restoreStateFromSession` replay session-state entry lên config ĐÃ
+ *                load từ prefs; entry cũ do fallback im lặng của `ensureAdvisorModelResolves`
+ *                ghi ra vẫn resolve được → đè prefs mãi (advisor kẹt model fallback sau reload).
+ *                Vá: chụp provider/modelId/thinkingLevel từ prefs trước khi replay, re-assert
+ *                sau replay nếu prefs model vẫn resolve.
+ *
  *   pi-goal-x  — widget factory của goal truyền cho host hai getter chạy ở MỖI frame
  *                (`getSettings` → `loadGoalSettings(ctx.cwd)`, `getLedgerEvents` →
  *                `goalActivityEvents(ctx, …)`). Vá: chụp `cwd` (chuỗi thuần) lúc đăng ký
  *                widget rồi dùng nó trong getter → đường render không còn chạm ctx.
+ *
+ *   node-notifier — KHÔNG phải stale ctx: `node-notifier` 12.x là ESM-only, chỉ có
+ *                `"type": "module"` + `"exports"`, KHÔNG có `"main"`. Bản `@pi-unipi/notify`
+ *                mới (3.0.x) phụ thuộc `node-notifier@^12.1.0`; nhánh phân giải module
+ *                kiểu cũ mà pi/jiti dùng (đọc `main`, fallback `index.js`) không thấy file
+ *                nào nên extension notify chết ngay lúc load:
+ *
+ *                  Failed to load extension: Cannot find module
+ *                  '…/npm/node_modules/node-notifier/index.js'.
+ *                  Please verify that the package.json has a valid "main" entry
+ *
+ *                Vá: thêm `"main": "./dist/index.js"` vào package.json của package
+ *                (resolver chuẩn ESM vẫn dùng `exports`; `main` chỉ để nhánh cũ resolve
+ *                được). Đây là bản vá duy nhất sửa `.json` chứ không sửa source `.ts`,
+ *                nên nó tự kiểm tra bằng `JSON.parse` thay vì parser TypeScript.
  *
  * Vì sao cần script này trong repo: bản vá nằm trong `node_modules` nên
  * `pi update <package>` / cài lại SẼ ghi đè. Chạy lại script sau mỗi lần update.
@@ -193,6 +216,66 @@ const PATCHES = [
 			return withCapture.join("\n");
 		},
 	},
+	{
+		id: "advisor-pi",
+		package: "advisor-pi",
+		file: path.join("advisor-pi", "src", "index.ts"),
+		summary: "session state entry (có thể đã fallback) đè prefs model mỗi lần reload",
+		isPatched(source) {
+			return source.includes("const preferred = { provider: config.provider, modelId: config.modelId, thinkingLevel: config.thinkingLevel };");
+		},
+		apply(source) {
+			const anchor = "config = normalizeConfig(loadPreferences(), defaultConfig(), ctx.modelRegistry, { migrateLegacyDefault: false });";
+			if (source.split(anchor).length - 1 !== 1) {
+				throw new Error(`advisor-pi: khớp anchor prefs load ${source.split(anchor).length - 1} lần, cần đúng 1 — bản cài đã đổi cấu trúc.`);
+			}
+			let lines = splitLines(source);
+			lines = replaceLines(
+				lines,
+				anchor,
+				"config = normalizeConfig(loadPreferences(), defaultConfig(), ctx.modelRegistry, { migrateLegacyDefault: false });\n" +
+					"\t\t// Preferred model/thinking from prefs must win over replayed session state: a\n" +
+					"\t\t// session-state entry saved by the silent fallback in ensureAdvisorModelResolves\n" +
+					"\t\t// would otherwise stick forever, since it still resolves and is never rewritten.\n" +
+					"\t\tconst preferred = { provider: config.provider, modelId: config.modelId, thinkingLevel: config.thinkingLevel };",
+				1,
+				"advisor-pi preferred snapshot",
+			);
+			lines = replaceLines(
+				lines,
+				"restoreStateFromSession(ctx, ctx.modelRegistry);",
+				"restoreStateFromSession(ctx, ctx.modelRegistry);\n" +
+					"\t\tif (modelResolves(ctx.modelRegistry, preferred.provider, preferred.modelId)) {\n" +
+					"\t\t\tconfig.provider = preferred.provider;\n" +
+					"\t\t\tconfig.modelId = preferred.modelId;\n" +
+					"\t\t\tconfig.thinkingLevel = preferred.thinkingLevel;\n" +
+					"\t\t}",
+				1,
+				"advisor-pi preferred reassert",
+			);
+			return lines.join("\n");
+		},
+	},
+	{
+		id: "node-notifier-main",
+		package: "node-notifier",
+		file: path.join("node-notifier", "package.json"),
+		summary: '12.x là ESM-only (chỉ "exports", không "main") → resolver kiểu cũ tìm <pkg>/index.js, @pi-unipi/notify không load được',
+		isPatched(source) {
+			return JSON.parse(source).main === "./dist/index.js";
+		},
+		apply(source) {
+			const pkg = JSON.parse(source);
+			// Chỉ thêm main: resolver chuẩn ESM vẫn dùng exports, còn nhánh phân giải
+			// kiểu cũ (đọc main rồi fallback index.js) không còn trỏ vào file không tồn tại.
+			pkg.main = "./dist/index.js";
+			return `${JSON.stringify(pkg, null, 2)}\n`;
+		},
+		// package.json không phải TypeScript — kiểm tra bằng JSON.parse.
+		validate(text) {
+			JSON.parse(text);
+		},
+	},
 ];
 
 const checkOnly = process.argv.includes("--check");
@@ -248,8 +331,10 @@ for (const patch of PATCHES) {
 	fs.renameSync(tmp, file);
 
 	// Tự kiểm tra: file phải parse được, phải mang guard, và guard phải thật sự có tác dụng.
+	// Mặc định là parser TypeScript của Node; patch nào sửa JSON thì tự khai `validate`.
+	const validate = patch.validate ?? ((text) => stripTypeScriptTypes(text, { mode: "strip" }));
 	try {
-		stripTypeScriptTypes(fs.readFileSync(file, "utf8"), { mode: "strip" });
+		validate(fs.readFileSync(file, "utf8"));
 	} catch (error) {
 		fs.copyFileSync(backup, file);
 		complain(`[${patch.id}] bản vá không parse được (${error.message}) → đã khôi phục file gốc từ backup.`);

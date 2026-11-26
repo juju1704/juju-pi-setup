@@ -1,13 +1,13 @@
 {
   "alwaysOn": true,
   "advisorOutcomeLogging": false,
-  "advisorEffort": "medium",
+  "advisorEffort": "high",
   "advisorScoutEnabled": true,
   "showUsageFooter": true,
   "advisorRedactSecrets": true,
   "advisorTrackedFileContent": true,
   "advisorUntrackedContent": true,
   "gateFailureMode": "warn-and-continue",
-  "advisor": "devin/swe-2",
+  "advisor": "omniroute/ollama-cloud/deepseek-v4.1-flash",
   "executor": "devin/swe-2"
 }

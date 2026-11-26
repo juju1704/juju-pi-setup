@@ -35,7 +35,7 @@ EXTERNAL_MANIFEST="external-configs.txt"
 # 'hooks' không cần liệt kê riêng: chúng nằm trong cây extensions/.
 # 'model-fallback/config.json' là file lồng trong thư mục riêng (pi-model-fallback); chỉ
 # restore file config, KHÔNG restore model-fallback/state.json (state theo máy).
-ITEMS=(settings.json APPEND_SYSTEM.md models-store.json advisor.json 99extensions.json advisor-pi-preferences model-fallback/config.json extensions skills memory missions sessions auth.json)
+ITEMS=(settings.json APPEND_SYSTEM.md models-store.json models.json advisor.json 99extensions.json advisor-pi-preferences model-fallback/config.json extensions bin skills memory missions sessions auth.json)
 
 info() { printf '%s\n' "$*"; }
 warn() { printf '⚠  %s\n' "$*" >&2; }

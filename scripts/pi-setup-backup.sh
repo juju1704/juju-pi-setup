@@ -4,7 +4,10 @@
 #
 # Mặc định chỉ lấy SETUP (không lấy state/secret/lịch sử):
 #   settings.json (manifest toàn bộ extension), APPEND_SYSTEM.md,
-#   models-store.json, extensions/, model-fallback/config.json
+#   models-store.json, models.json (custom providers, VD omniroute),
+#   bin/ (script tự viết, VD sync-omniroute-models.sh; bin/fd bị exclude
+#   qua .pi-setup-exclude vì là binary theo kiến trúc máy),
+#   extensions/, model-fallback/config.json
 #
 # Các phần còn lại phải opt-in từng cái:
 #   --auth       auth.json      ⚠ CHỨA CREDENTIAL (API key + OAuth token)
@@ -41,7 +44,7 @@ AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
 # model-fallback/config.json của pi-model-fallback cũng nằm ngoài extensions/ (trong
 # thư mục model-fallback/) → liệt kê riêng. CHỈ lấy file config, KHÔNG lấy cả thư mục:
 # state.json cùng thư mục là state theo máy (entry + mốc cooldown), không phải setup.
-ITEMS_SETUP=(settings.json APPEND_SYSTEM.md models-store.json advisor.json 99extensions.json advisor-pi-preferences model-fallback/config.json extensions)
+ITEMS_SETUP=(settings.json APPEND_SYSTEM.md models-store.json models.json advisor.json 99extensions.json advisor-pi-preferences model-fallback/config.json extensions bin)
 
 OUT="$ROOT/pi-setup-portable.tar.gz"
 CONFIG_DIR=""

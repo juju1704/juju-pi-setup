@@ -8,5 +8,9 @@ pi-setup-install.log
 # Rác hệ điều hành
 .DS_Store
 
+# State theo máy, không phải setup: hàng đợi task của pi + config riêng của unipi
+/.pi/
+/.unipi/
+
 # Bản screenshot gốc (chưa crop/nén) — không track
 screenshots/originals/
